@@ -14,4 +14,6 @@ The in NOVA the scrape process is launched by `Scraper.java` that relies on `Sea
 - then fallback to default that matches everything
   - `MovieDefaultMatcher.java` for filename based matching
   
+In TestScraper all these classes and dependencies are merged in one file with debugs.
+
 If you experience any issue with NOVA scraper, please use this simple program to propose enhancements via pull request not breaking the current examples.
