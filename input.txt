@@ -1,3 +1,14 @@
+//Normal that this one is not matched by MoviePathMatcher cf. comment in code
+./movies/Transformers.2001/movie.avi
+//STOPTEST
+./Yes Minister & Yes Prime Minister Complete.x264/Yes Minister/S02/S02E01 The Compassionate Society.mkv
+./series/The A Team S01E02 (1978)/lala.avi
+./movies/Titanic (2001)/movie.avi
+./movies/Transformers (2009) [720p]/lala.mkv"
+./movies/Th3 L33tspe4k (2009) [720p]/lala.mkv
+./Tv Show title S01E01/randomgarbage.mkv
+./series/Galactica/Season 1/galactica.ep3.avi
+//STOPTEST
 ./movies/Titanic (2001)/movie.avi
 ./movies/Transformers (2009) [720p]/lala.mkv"
 ./movies/Th3 L33tspe4k (2009) [720p]/lala.mkv
