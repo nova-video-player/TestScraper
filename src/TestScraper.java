@@ -20,6 +20,9 @@ public class TestScraper {
         String test;
         boolean isResultOk;
         while ((test = reader.readLine()) != null) {
+            isResultOk = false;
+            if (test.startsWith("STOPTEST")) break;
+            if (test.startsWith("//")) continue;
             println("* Processing: %s", test);
             println("--> TvShowMatcher");
             isResultOk = TvShowMatcher(test);
@@ -29,7 +32,7 @@ public class TestScraper {
             }
             if (!isResultOk) {
                 println("--> TvShowPathMatcher");
-                isResultOk = TvShowFolderMatcher(test);
+                isResultOk = TvShowPathMatcher(test);
             }
             if (!isResultOk) {
                 println("--> MoviePathMatcher");
@@ -61,16 +64,16 @@ public class TestScraper {
      * Name may only contain Alphanumerics separated by spaces
      */
     private static boolean TvShowPathMatcher(String input) {
-        if (DBG) println("input            : " + input);
+        if (DBG) println("TvShowPathMatcher input: " + input);
         Matcher matcher = SHOW_SEASON_EPISODE_PATH_PATTERN.matcher(input);
         if (matcher.matches()) {
             String showName = removeInnerAndOutterSeparatorJunk(matcher.group(1));
             int season = parseInt(matcher.group(2), 0);
             int episode = parseInt(matcher.group(3), 0);
-            println("RESULT           : show %s season:%s, episode:%s", showName, season, episode);
+            println("TvShowPathMatcher true: show %s season:%s, episode:%s", showName, season, episode);
             return true;
         } else {
-            if (DBG) println("NO RESULT!");
+            if (DBG) println("TvShowPathMatcher: false");
             return false;
         }
     }
@@ -81,9 +84,11 @@ public class TestScraper {
      * Matches all sorts of "Tv Show title S01E01/randomgarbage.mkv" and similar things
      */
     private static boolean TvShowFolderMatcher(String input) {
-        if (DBG) println("+++++ input            : " + input);
+        if (DBG) println("TvShowFolderMatcher input: " + input);
         input = removeLastSegment(input);
-        if (DBG) println("+++++ fileNoPath       : " + input);
+        if (DBG) println("TvShowFolderMatcher fileNoPath: " + input);
+        // TODO ERROR clean leading "/" (and could simplify since isTVShow does all the matching already...)
+        input = getName(input);
         if (isTvShow(input)) {
             Map<String, String> showName = parseShowName(input);
             if (showName != null) {
@@ -92,14 +97,14 @@ public class TestScraper {
                 String episode = showName.get(EPNUM);
                 int seasonInt = parseInt(season, 0);
                 int episodeInt = parseInt(episode, 0);
-                println("==== RESULT           : show %s season:%s, episode:%s",showTitle, seasonInt, episodeInt);
+                println("TvShowFolderMatcher true: show is %s, season:%s, episode:%s", showTitle, seasonInt, episodeInt);
                 return true;
             } else {
-                if (DBG) println("==== NO RESULT (but tvShow...)!");
+                if (DBG) println("TvShowFolderMatcher false (but tvShow...)!");
                 return false;
             }
         } else
-            if (DBG) println("==== NO RESULT (no tvShow)!");
+            if (DBG) println("TvShowFolderMatcher false (no tvShow)!");
         return false;
     }
 
@@ -109,9 +114,9 @@ public class TestScraper {
      * Matches all sorts of "Tv Show title S01E01" and similar things
      */
     private static boolean TvShowMatcher(String input) {
-        if (DBG) println("+++++ input            : " + input);
+        if (DBG) println("TvShowMatcher input: " + input);
         input = getFileNameWithoutExtension(input);
-        if (DBG) println("+++++ fileNoExt        : " + input);
+        if (DBG) println("TvShowMatcher fileNoExt: " + input);
         if (isTvShow(input)) {
             Map<String, String> showName = parseShowName(input);
             if (showName != null) {
@@ -120,14 +125,14 @@ public class TestScraper {
                 String episode = showName.get(EPNUM);
                 int seasonInt = parseInt(season, 0);
                 int episodeInt = parseInt(episode, 0);
-                println("==== RESULT           : show %s season:%s, episode:%s",showTitle, seasonInt, episodeInt);
+                println("TvShowMatcher true: show %s season:%s, episode:%s",showTitle, seasonInt, episodeInt);
                 return true;
             } else {
-                if (DBG) println("==== NO RESULT (but tvShow...)!");
+                if (DBG) println("TvShowMatcher false (but tvShow...)!");
                 return false;
             }
         } else
-        if (DBG) println("==== NO RESULT (no tvShow)!");
+        if (DBG) println("TvShowMatcher false (no tvShow)!");
         return false;
     }
 
@@ -174,7 +179,7 @@ public class TestScraper {
         name = replaceAcronyms(name);
         name = replaceAllChars(name, REPLACE_ME, ' ');
         name = name.trim();
-        if (DBG) println("+++++ cleanUpName      : " + name);
+        if (DBG) println("cleanUpName: " + name);
         return name;
     }
 
@@ -184,11 +189,13 @@ public class TestScraper {
      *  If the filename doesn't match a tv show pattern, returns null.
      */
     public static Map<String, String> parseShowName(String filename) {
+        if (DBG) println("parseShowName input: " + filename);
         final HashMap<String, String> buffer = new HashMap<String, String>();
         for(Pattern regexp: patternsShowFirst) {
             Matcher matcher = regexp.matcher(filename);
             try {
                 if(matcher.find()) {
+                    if (DBG) println("parseShowName patternsShowFirst show %s, season %s, episode %s", matcher.group(1), matcher.group(2), matcher.group(3));
                     buffer.put(SHOW, cleanUpName(matcher.group(1)));
                     buffer.put(SEASON, matcher.group(2));
                     buffer.put(EPNUM, matcher.group(3));
@@ -196,10 +203,13 @@ public class TestScraper {
                 }
             } catch (IllegalArgumentException ignored) {}
         }
+        // TODO ERROR SxxEyy-showName does not exist and makes ./serie/The Flash/S02/S02E01 lahlah.mkv not identidied
+        /*
         for(Pattern regexp: patternsEpisodeFirst) {
             Matcher matcher = regexp.matcher(filename);
             try {
                 if(matcher.find()) {
+                    if (DBG) println("parseShowName patternsEpisodeFirst show %s, season %s, episode %s", matcher.group(3), matcher.group(1), matcher.group(2));
                     buffer.put(SHOW, cleanUpName(matcher.group(3)));
                     buffer.put(SEASON, matcher.group(1));
                     buffer.put(EPNUM, matcher.group(2));
@@ -207,6 +217,7 @@ public class TestScraper {
                 }
             } catch (IllegalArgumentException ignored) {}
         }
+         */
         return null;
     }
 
@@ -217,27 +228,39 @@ public class TestScraper {
      */
     public static boolean isTvShow(String file, String searchString) {
         String filename;
+        if (DBG) println("isTvShow input: " + file);
         if (searchString != null && !searchString.isEmpty()) {
             filename = searchString;
         } else {
-            if (file == null)
+            if (file == null) {
+                if (DBG) println("isTvShow result: false");
                 return false;
+            }
             filename = getName(file);
         }
-        for(Pattern regexp: patternsShowFirst) {
+        if (DBG) println("isTvShow processing: " + filename);
+        for (Pattern regexp: patternsShowFirst) {
             Matcher m = regexp.matcher(filename);
             try {
-                if(m.matches())
+                if(m.matches()) {
+                    if (DBG) println("isTvShow result: true");
                     return true;
+                }
             } catch (IllegalArgumentException ignored) {}
         }
-        for(Pattern regexp: patternsEpisodeFirst) {
+        // TODO ERROR SxxEyy-showName does not exist and makes ./serie/The Flash/S02/S02E01 lahlah.mkv not identidied
+        /*
+        for (Pattern regexp: patternsEpisodeFirst) {
             Matcher m = regexp.matcher(filename);
             try {
-                if(m.matches())
+                if(m.matches()) {
+                    if (DBG) println("isTvShow result: true");
                     return true;
+                }
             } catch (IllegalArgumentException ignored) {}
         }
+         */
+        if (DBG) println("isTvShow result: false");
         return false;
     }
 
@@ -279,16 +302,15 @@ public class TestScraper {
     private static final Pattern MOVIE_YEAR_PATH_PATTERN = Pattern.compile(".*/((?:[\\p{L}\\p{N}]++\\s*+)++)\\(((?:19|20)\\d{2})\\)[^/]*+/[^/]++");
 
     private static boolean MoviePathMatcher(String input) {
-        // TODO MARC: seems not to work on examples!!!
-        if (DBG) println("+++++ input            : " + input);
+        if (DBG) println("MoviePathMatcher input: " + input);
         Matcher matcher = MOVIE_YEAR_PATH_PATTERN.matcher(input);
         if (matcher.matches()) {
             String name = removeInnerAndOutterSeparatorJunk(matcher.group(1));
             String year = matcher.group(2);
-            println("==== RESULT           : %s year:%s", name, year);
+            println("MoviePathMatcher true: %s year:%s", name, year);
             return true;
         } else {
-            if (DBG) println("==== NO RESULT!");
+            if (DBG) println("MoviePathMatcher false");
             return false;
         }
     }
@@ -314,9 +336,9 @@ public class TestScraper {
         // TODO test 3rd party denoise pattern
         // denoise filter Default = @"(([\(\{\[]|\b)((576|720|1080)[pi]|dir(ectors )?cut|dvd([r59]|rip|scr(eener)?)|(avc)?hd|wmv|ntsc|pal|mpeg|dsr|r[1-5]|bd[59]|dts|ac3|blu(-)?ray|[hp]dtv|stv|hddvd|xvid|divx|x264|dxva|(?-i)FEST[Ii]VAL|L[iI]M[iI]TED|[WF]S|PROPER|REPACK|RER[Ii]P|REAL|RETA[Ii]L|EXTENDED|REMASTERED|UNRATED|CHRONO|THEATR[Ii]CAL|DC|SE|UNCUT|[Ii]NTERNAL|[DS]UBBED)([\]\)\}]|\b)(-[^\s]+$)?)")]
         String name = input;
-        if (DBG) println("+++++ input            : " + name);
+        if (DBG) println("MovieDefaultMatcher input: " + name);
         name = getFileNameWithoutExtension(name);
-        if (DBG) println("+++++ fileNoExt        : " + name);
+        if (DBG) println("MovieDefaultMatcher fileNoExt: " + name);
         // extract the last year from the string
         String year = null;
         // matches "[space or punctuation/brackets etc]year", year is group 1
@@ -334,14 +356,14 @@ public class TestScraper {
             year = name.substring(start, stop);
             name = name.substring(0, start) + name.substring(stop);
         }
-        if (DBG) println("+++++ release year     : %s year:%s", name, year);
+        if (DBG) println("MovieDefaultMatcher release year: %s year:%s", name, year);
 
         // Strip out starting numbering for collections
         name = removeNumbering(name);
 
         // Strip out everything else in brackets <[{( .. )})>, most of the time teams names, etc
         name = replaceAll(name, "", BRACKETS);
-        if (DBG) println("+++++ brackets         : " + name);
+        if (DBG) println("MovieDefaultMatcher brackets: " + name);
 
         // strip away known case sensitive garbage
         name = cutOffBeforeFirstMatch(name, GARBAGE_CASESENSITIVE_PATTERNS);
@@ -358,7 +380,7 @@ public class TestScraper {
         name = cutOffBeforeFirstMatch(name, GARBAGE_LOWERCASE);
 
         name = name.trim();
-        println("==== RESULT           : %s year:%s", name, year);
+        println("MovieDefaultMatcher true: %s year:%s", name, year);
     }
 
     // Most of the common garbage in movies name we want to strip out
@@ -421,32 +443,35 @@ public class TestScraper {
     // does not replace numbers if they are not separated like in
     // "13.Years.Of.School"
     public static String removeNumbering(String input) {
+        if (DBG) println("removeNumbering input: " + input);
         String result = replaceAll(input, "", LEADING_NUMBERING);
-        if (DBG) println("+++++ remove numbering : " + result);
         return result;
     }
 
     /** replaces "S.H.I.E.L.D." with "SHIELD", only uppercase letters */
     public static String replaceAcronyms(String input) {
+        if (DBG) println("replaceAcronyms input: " + input);
         String result = replaceAll(input, "", ACRONYM_DOTS);
-        if (DBG) println("+++++ acronyms         : " + result);
+        if (DBG) println("replaceAcronyms result: " + result);
         return result;
     }
 
     /** replaces alternative apostrophes with a simple ' */
     public static String unifyApostrophes(String input) {
+        if (DBG) println("unifyApostrophes input: " + input);
         String result = replaceAllChars(input, ALTERNATE_APOSTROPHES, '\'');
-        if (DBG) println("+++++ apostrophes      : " + result);
+        if (DBG) println("unifyApostrophes result: " + result);
         return result;
     }
 
     /** removes all punctuation characters besides ' Also does apostrophe and Acronym replacement */
     public static String removeInnerAndOutterSeparatorJunk(String input) {
         // replace ’ and ‘ by ' - both could be used as apostrophes
+        if (DBG) println("removeInnerAndOutterSeparatorJunk input: " + input);
         String result = unifyApostrophes(input);
         result = replaceAcronyms(result);
         result = replaceAll(result, " ", MULTI_NON_CHARACTER_PATTERN).trim();
-        if (DBG) println("+++++ separators       : " + result);
+        if (DBG) println("removeInnerAndOutterSeparatorJunk result: " + result);
         return result;
     }
 
@@ -471,6 +496,7 @@ public class TestScraper {
      * @return substring from start to first finding of any garbage pattern
      */
     private static String cutOffBeforeFirstMatch(String input, Pattern[] patterns) {
+        if (DBG) println("cutOffBeforeFirstMatch input: " + input);
         String remaining = input;
         for (Pattern pattern : patterns) {
             if (remaining.isEmpty()) return "";
@@ -480,7 +506,7 @@ public class TestScraper {
                 remaining = remaining.substring(0, matcher.start());
             }
         }
-        if (DBG) println("+++++ CaSe junk        : " + remaining);
+        if (DBG) println("cutOffBeforeFirstMatch (CaSe junk) result: " + remaining);
         return remaining;
     }
 
@@ -491,6 +517,7 @@ public class TestScraper {
      */
     public static String cutOffBeforeFirstMatch(String input, String[] garbageStrings) {
         // lower case input to test against lowercase strings
+        if (DBG) println("cutOffBeforeFirstMatch input: " + input);
         String inputLowerCased = input.toLowerCase(Locale.US);
         int firstGarbage = input.length();
         for (String garbage : garbageStrings) {
@@ -501,7 +528,7 @@ public class TestScraper {
         }
         // return substring from input -> keep case
         String result = input.substring(0, firstGarbage);
-        if (DBG) println("+++++ lowercase junk   : " + result);
+        if (DBG) println("cutOffBeforeFirstMatch (lowercase junk) result: " + result);
         return result;
     }
 
@@ -543,6 +570,7 @@ public class TestScraper {
     }
 
     private static String getFileNameWithoutExtension(String input) {
+        if (DBG) println("getFileNameWithoutExtension input: " + input);
         File file = new File(input);
         String name = file.getName();
         if (name != null) {
@@ -551,6 +579,7 @@ public class TestScraper {
                 name = name.substring(0, dotPos);
             }
         }
+        if (DBG) println("getFileNameWithoutExtension result: " + name);
         return name;
     }
 
@@ -573,15 +602,32 @@ public class TestScraper {
     final static String SEPARATOR = "/";
 
     public static String getName(String file) {
+        if (DBG) println("getFileNameWithoutExtension input: " + file);
+        if (DBG) println("getFileNameWithoutExtension result: " + file.substring(file.lastIndexOf(SEPARATOR) + 1));
+        /*
+        //File file = new File(file);
+        //String name = file.getName();
+
+        String name = file.getLastPathSegment();
+        if (name == null || name.isEmpty()) {
+            if (file.lastIndexOf("/") >= 0 && file.lastIndexOf("/") < (file.length() - 1))
+                name = file.substring(file.lastIndexOf("/") + 1);
+            else
+                name = file;
+        }
+         */
         return file.substring(file.lastIndexOf(SEPARATOR) + 1);
     }
 
     public static String removeLastSegment(String file){
+        if (DBG) println("removeLastSegment input: " + file);
         int index;
         if (file.endsWith(SEPARATOR))
             index = file.lastIndexOf(SEPARATOR, file.length()-2);
         else index = file.lastIndexOf(SEPARATOR);
         if (index<=0) return null;
-        return file.substring(0, index + 1);
+        // TODO ERROR CHANGE file.substring(0, index + 1) -> file.substring(0, index) otherwise trailing "/" remains
+        if (DBG) println("removeLastSegment result: " + file.substring(0, index));
+        return file.substring(0, index);
     }
 }
