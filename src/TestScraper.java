@@ -1,3 +1,5 @@
+import javafx.util.Pair;
+
 import java.io.*;
 import java.net.URLEncoder;
 import java.util.HashMap;
@@ -21,8 +23,9 @@ public class TestScraper {
         boolean isResultOk;
         while ((test = reader.readLine()) != null) {
             isResultOk = false;
-            if (test.startsWith("STOPTEST")) break;
-            if (test.startsWith("//")) continue;
+            if (test.startsWith("STOPTEST")) break; // STOPTEST stops the loop
+            if (test.startsWith("//")) continue; // skip comments
+            if(test.trim().length() == 0) continue; // skip empty lines
             println("* Processing: %s", test);
             println("--> TvShowMatcher");
             isResultOk = TvShowMatcher(test);
@@ -54,7 +57,7 @@ public class TestScraper {
     // e.g. "/series/Galactica/Season 1/galactica.ep3.avi"
 
     private static final Pattern SHOW_SEASON_EPISODE_PATH_PATTERN =
-            Pattern.compile("(?i).*/((?:[\\p{L}\\p{N}]++[\\s._-]*+)++)/[^/]*?(?<![\\p{L}])(?:S|SEAS|SEASON)[\\s._-]*+(\\d{1,2})(?!\\d)[^/]*+/[^/]*?(?<![\\p{L}])(?:E|EP|EPISODE)[\\s._-]*+(\\d{1,2})(?!\\d)[^/]*+");
+            Pattern.compile("(?i).*/((?:[\\p{L}\\p{N}]++[\\s._-]*+)++)/[^/]*?(?<![\\p{L}])(?:S|SEAS|SEASON)[\\s._-]*+(\\d{1,2})(?!\\d)[^/]*+/[^/]*?(?<![\\p{L}])(?:E|EP|EPISODE|WEBISODE)[\\s._-]*+(\\d{1,2})(?!\\d)[^/]*+");
 
     /**
      * Matches Tv Shows in folders like
@@ -155,7 +158,7 @@ public class TestScraper {
     // Name patterns where the show is present first. Examples below.
     private static final Pattern[] patternsShowFirst = {
             // almost anything that has S 00 E 00 in it
-            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:s|seas|season)" + SEP_OPTIONAL + "(20\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:s|seas|season)" + SEP_OPTIONAL + "(20\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode|webisode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
             // almost anything that has 00 x 00
             Pattern.compile("(.+?)" + SEP_MANDATORY + "(20\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "x" + SEP_MANDATORY + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
             // special case to avoid x264 or x265
@@ -168,7 +171,7 @@ public class TestScraper {
     // Name patterns which begin with the number of the episode
     private static final Pattern[] patternsEpisodeFirst = {
             // anything that starts with S 00 E 00, text after "-" getting ignored
-            Pattern.compile(SEP_OPTIONAL + "(?:s|seas|season)" + SEP_OPTIONAL + "(\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d)" + SEP_OPTIONAL + "([^-]*+).*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile(SEP_OPTIONAL + "(?:s|seas|season)" + SEP_OPTIONAL + "(\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode|webisode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d)" + SEP_OPTIONAL + "([^-]*+).*", Pattern.CASE_INSENSITIVE),
             // anything that starts with 00 x 00, text after "-" getting ignored like in "S01E15 - ShowName - Ignored - still ignored"
             Pattern.compile(SEP_OPTIONAL + "(\\d{1,2})" + SEP_OPTIONAL + "x" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d)" + SEP_OPTIONAL + "([^-]*+).*", Pattern.CASE_INSENSITIVE),
     };
@@ -337,26 +340,21 @@ public class TestScraper {
         // denoise filter Default = @"(([\(\{\[]|\b)((576|720|1080)[pi]|dir(ectors )?cut|dvd([r59]|rip|scr(eener)?)|(avc)?hd|wmv|ntsc|pal|mpeg|dsr|r[1-5]|bd[59]|dts|ac3|blu(-)?ray|[hp]dtv|stv|hddvd|xvid|divx|x264|dxva|(?-i)FEST[Ii]VAL|L[iI]M[iI]TED|[WF]S|PROPER|REPACK|RER[Ii]P|REAL|RETA[Ii]L|EXTENDED|REMASTERED|UNRATED|CHRONO|THEATR[Ii]CAL|DC|SE|UNCUT|[Ii]NTERNAL|[DS]UBBED)([\]\)\}]|\b)(-[^\s]+$)?)")]
         String name = input;
         if (DBG) println("MovieDefaultMatcher input: " + name);
+
         name = getFileNameWithoutExtension(name);
         if (DBG) println("MovieDefaultMatcher fileNoExt: " + name);
+
         // extract the last year from the string
         String year = null;
         // matches "[space or punctuation/brackets etc]year", year is group 1
-        Matcher matcher = YEAR_PATTERN.matcher(name);
-        int start = 0;
-        int stop = 0;
-        boolean found = false;
-        while (matcher.find()) {
-            found = true;
-            start = matcher.start(1);
-            stop = matcher.end(1);
-        }
-        // get the last match and extract it from the string
-        if (found) {
-            year = name.substring(start, stop);
-            name = name.substring(0, start) + name.substring(stop);
-        }
-        if (DBG) println("MovieDefaultMatcher release year: %s year:%s", name, year);
+        // "[\\s\\p{Punct}]((?:19|20)\\d{2})(?!\\d)"
+        Pair<String,String> nameYear = yearExtractor(name);
+        name = nameYear.getKey();
+        year = nameYear.getValue();
+
+        // remove junk behind () that was containing year
+        // applies to movieName (1928) junk -> movieName () junk -> movieName
+        name = removeAfterEmptyParenthesis(name);
 
         // Strip out starting numbering for collections
         name = removeNumbering(name);
@@ -405,12 +403,14 @@ public class TestScraper {
     };
     // stuff that could be present in real names is matched with tight case sensitive syntax
     // strings here will only match if separated by any of " .-_"
+    // TODO: missing VOF and remove "Eng" meaning closely in german but is there a movie starting with "Eng" since case sensitive
+    // TODO ??is IT or ES in english/spanish an issue to remove for case sensitive because of titles using high caps??
     private static final String[] GARBAGE_CASESENSITIVE = {
             "FRENCH", "TRUEFRENCH", "DUAL", "MULTISUBS", "MULTI", "MULTi", "SUBFORCED", "SUBFORCES", "UNRATED", "UNRATED[ ._-]DC", "EXTENDED", "IMAX",
             "COMPLETE", "PROPER", "iNTERNAL", "INTERNAL",
             "SUBBED", "ANiME", "LIMITED", "REMUX", "DCPRip",
             "TS", "TC", "REAL", "HD", "DDR", "WEB",
-            "EN", "ENG", "FR", "ES", "IT", "NL", "VFQ", "VF", "VO", "VOSTFR", "Eng",
+            "EN", "ENG", "FR", "ES", "IT", "NL", "VFQ", "VF", "VO", "VOF", "VOSTFR", "Eng",
             "VOST", "VFF", "VF2", "VFI", "VFSTFR",
     };
 
@@ -425,7 +425,10 @@ public class TestScraper {
 
     // Strip out everything else in brackets <[{( .. )})>, most of the time teams names, etc
     private static final Pattern BRACKETS = Pattern.compile("[<({\\[].+?[>)}\\]]");
-    private static final Pattern BRACKETS2 = Pattern.compile("[<(\\[{].+?[>)\\]}]");
+
+    // Strip out everything after empty parenthesis (after year pattern removal)
+    // i.e. movieName (1969) garbage -> movieName () garbage -> movieName
+    private static final Pattern EMPTY_PARENTHESIS_PATTERN = Pattern.compile("[\\s\\p{Punct}]([(][)])[\\s\\p{Punct}]");
 
     // replaces alternative apostrophes with a simple '
     // besides the plain ' there is the typographic ’ and ‘ which is actually not an apostrophe
@@ -581,6 +584,46 @@ public class TestScraper {
         }
         if (DBG) println("getFileNameWithoutExtension result: " + name);
         return name;
+    }
+
+    // remove all what is after empty parenthesis
+    // only apply to movieName (1928) junk -> movieName () junk -> movieName
+    private static String removeAfterEmptyParenthesis(String input) {
+        if (DBG) println("removeAfterEmptyParenthesis input: %s", input);
+        Matcher matcher = EMPTY_PARENTHESIS_PATTERN.matcher(input);
+        int start = 0;
+        int stop = 0;
+        boolean found = false;
+        while (matcher.find()) {
+            found = true;
+            start = matcher.start(1);
+        }
+        // get the first match and extract it from the string
+        if (found)
+            input = input.substring(0, start);
+        if (DBG) println("removeAfterEmptyParenthesis remove junk after (): %s", input);
+        return input;
+    }
+
+    private static Pair<String,String> yearExtractor(String input) {
+        if (DBG) println("yearExtractor input: %s", input);
+        String year = null;
+        Matcher matcher = YEAR_PATTERN.matcher(input);
+        int start = 0;
+        int stop = 0;
+        boolean found = false;
+        while (matcher.find()) {
+            found = true;
+            start = matcher.start(1);
+            stop = matcher.end(1);
+        }
+        // get the last match and extract it from the string
+        if (found) {
+            year = input.substring(start, stop);
+            input = input.substring(0, start) + input.substring(stop);
+        }
+        if (DBG) println("yearExtractor release year: %s year: %s", input, year);
+        return new Pair<>(input, year);
     }
 
     // StringUtils.java
