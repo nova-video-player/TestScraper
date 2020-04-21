@@ -17,3 +17,14 @@ The in NOVA the scrape process is launched by `Scraper.java` that relies on `Sea
 In TestScraper all these classes and dependencies are merged in one file with debugs.
 
 If you experience any issue with NOVA scraper, please use this simple program to propose enhancements via pull request not breaking the current examples.
+
+The list the non scraped video URIs can be obtained by running the following script on the exported NOVA media library following these steps:
+- extract the media library from the phone
+  - enter advanced settings by going to NOVA -> Preferences->click/tap 8 times on "Force software decoding"
+  - trigger the database export via the "Export media database" Preference entry
+  - pull the database from the host via adb: `adb pull /sdcard/org.courville.nova-media.db .`
+- run the following script (requires `sqlite3` to be installed)
+```
+echo "SELECT _data FROM video WHERE m_id IS NULL OR s_id IS NULL" | sqlite3 org.courville.nova-media.db
+```
+- use the output of the script as the `input.txt file to run TestScraper
