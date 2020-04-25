@@ -89,8 +89,7 @@ public class TestScraper {
     private static boolean TvShowFolderMatcher(String input) {
         if (DBG) println("TvShowFolderMatcher input: " + input);
         input = removeLastSegment(input);
-        if (DBG) println("TvShowFolderMatcher fileNoPath: " + input);
-        // TODO ERROR clean leading "/" (and could simplify since isTVShow does all the matching already...)
+        input = removeTrailingSlash(input);
         input = getName(input);
         if (isTvShow(input)) {
             Map<String, String> showName = parseShowName(input);
@@ -166,6 +165,7 @@ public class TestScraper {
             // foo.103 and similar
             // Note: can detect movies that contain 3 digit numbers like "127 hours" or shows that have such numbers in their name like "zoey 101"
             // Limit first digit to be >0 in order not to identify "James Bond 007" as tv show
+            // TODO is it wise because s00exx are the episode specials no but matched probably by previous pattern matching
             Pattern.compile("(.+)" + SEP_MANDATORY + "(?!(?:264|265|720))([1-9])(\\d{2,2})" + SEP_MANDATORY + ".*", Pattern.CASE_INSENSITIVE),
     };
     // Name patterns which begin with the number of the episode
@@ -175,6 +175,9 @@ public class TestScraper {
             // anything that starts with 00 x 00, text after "-" getting ignored like in "S01E15 - ShowName - Ignored - still ignored"
             Pattern.compile(SEP_OPTIONAL + "(\\d{1,2})" + SEP_OPTIONAL + "x" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d)" + SEP_OPTIONAL + "([^-]*+).*", Pattern.CASE_INSENSITIVE),
     };
+    // for show episode only without season
+    private static final Pattern SHOW_ONLY_EPISODE_PATTERN =
+            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:e|ep|episode|webisode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE);
 
     private static String cleanUpName(String name) {
         name = unifyApostrophes(name);
@@ -221,6 +224,19 @@ public class TestScraper {
             } catch (IllegalArgumentException ignored) {}
         }
          */
+        // cannot do this otherwise ./series/Galactica/Season 1/galactica.ep3.avi is matched as single episode by TvShowMatcher that goes first
+        /*
+        Matcher matcher = SHOW_ONLY_EPISODE_PATTERN.matcher(filename);
+        try {
+            if(matcher.find()) {
+                if (DBG) println("parseShowName patternsShowFirst show %s, season %s, episode %s", matcher.group(1), "none", matcher.group(2));
+                buffer.put(SHOW, cleanUpName(matcher.group(1)));
+                buffer.put(SEASON, null);
+                buffer.put(EPNUM, matcher.group(2));
+                return buffer;
+            }
+        } catch (IllegalArgumentException ignored) {}
+         */
         return null;
     }
 
@@ -251,7 +267,7 @@ public class TestScraper {
                 }
             } catch (IllegalArgumentException ignored) {}
         }
-        // TODO ERROR SxxEyy-showName does not exist and makes ./serie/The Flash/S02/S02E01 lahlah.mkv not identidied
+        // Disable above patternsEpisodeFirst because SxxEyy-showName does not exist and makes ./serie/The Flash/S02/S02E01 lahlah.mkv not identidied
         /*
         for (Pattern regexp: patternsEpisodeFirst) {
             Matcher m = regexp.matcher(filename);
@@ -263,7 +279,17 @@ public class TestScraper {
             } catch (IllegalArgumentException ignored) {}
         }
          */
+        // cannot do this otherwise ./series/Galactica/Season 1/galactica.ep3.avi is matched as single episode by TvShowMatcher that goes first
+        /*
+        Matcher m = SHOW_ONLY_EPISODE_PATTERN.matcher(filename);
         if (DBG) println("isTvShow result: false");
+        try {
+            if(m.matches()) {
+                if (DBG) println("isTvShow result: true (episode only)");
+                return true;
+            }
+        } catch (IllegalArgumentException ignored) {}
+         */
         return false;
     }
 
@@ -301,7 +327,7 @@ public class TestScraper {
     //      "/movies/Transformers.2001/movie.avi"
     // will unfortunately match -> catch that before
     //      "/series/The A Team S01E02 (1978)/lala.avi
-
+    // Remark: could not match ^1921 without matching "2001 A space oddyssey.mkv" "1984.mkv", thus following not matched ./Marx_Brothers/1941 Au grand magasin (The Big Store).mkv
     private static final Pattern MOVIE_YEAR_PATH_PATTERN = Pattern.compile(".*/((?:[\\p{L}\\p{N}]++\\s*+)++)\\(((?:19|20)\\d{2})\\)[^/]*+/[^/]++");
 
     private static boolean MoviePathMatcher(String input) {
@@ -348,7 +374,7 @@ public class TestScraper {
         String year = null;
         // matches "[space or punctuation/brackets etc]year", year is group 1
         // "[\\s\\p{Punct}]((?:19|20)\\d{2})(?!\\d)"
-        Pair<String,String> nameYear = yearExtractor(name);
+        Pair<String, String> nameYear = yearExtractor(name);
         name = nameYear.getKey();
         year = nameYear.getValue();
 
@@ -356,9 +382,14 @@ public class TestScraper {
         // applies to movieName (1928) junk -> movieName () junk -> movieName
         name = removeAfterEmptyParenthesis(name);
 
+        // TODO could it treat ^01-Toto -> Toto or space important?
         // Strip out starting numbering for collections
         name = removeNumbering(name);
 
+        // would solve Le Chateau dans le ciel (Miyazaki 1986) Studio Ghibli animation HDrip BBer.mkv
+        // would solve Les contes de Terremer (Miyazaki 2006) french HDrip panisa.mkv
+        // WARNING not in path? only last segment?
+        // will conflict with /t411/mon_beau_pere/Mon Beau-père (3) Et Nous - 1080p Fr En mHdgz.mkv
         // Strip out everything else in brackets <[{( .. )})>, most of the time teams names, etc
         name = replaceAll(name, "", BRACKETS);
         if (DBG) println("MovieDefaultMatcher brackets: " + name);
@@ -640,26 +671,24 @@ public class TestScraper {
         return errorValue;
     }
 
+    public static String removeTrailingSlash(String input) {
+        if (DBG) println("removeTrailingSlash input: " + input);
+        if (input != null && input.length() > 0 && input.charAt(input.length() - 1) == '/')
+            input = input.substring(0, input.length() - 1);
+        if (DBG) println("removeTrailingSlash output: " + input);
+        return input;
+    }
+
     // FileUtils.java
 
     final static String SEPARATOR = "/";
 
     public static String getName(String file) {
-        if (DBG) println("getFileNameWithoutExtension input: " + file);
-        if (DBG) println("getFileNameWithoutExtension result: " + file.substring(file.lastIndexOf(SEPARATOR) + 1));
-        /*
-        //File file = new File(file);
-        //String name = file.getName();
-
-        String name = file.getLastPathSegment();
-        if (name == null || name.isEmpty()) {
-            if (file.lastIndexOf("/") >= 0 && file.lastIndexOf("/") < (file.length() - 1))
-                name = file.substring(file.lastIndexOf("/") + 1);
-            else
-                name = file;
-        }
-         */
-        return file.substring(file.lastIndexOf(SEPARATOR) + 1);
+        if (DBG) println("getName input: " + file);
+        if (file.lastIndexOf(SEPARATOR) >= 0 && file.lastIndexOf(SEPARATOR) < (file.length() - 1))
+            file = file.substring(file.lastIndexOf(SEPARATOR) + 1);
+        if (DBG) println("getName result: " + file);
+        return file;
     }
 
     public static String removeLastSegment(String file){
@@ -669,8 +698,8 @@ public class TestScraper {
             index = file.lastIndexOf(SEPARATOR, file.length()-2);
         else index = file.lastIndexOf(SEPARATOR);
         if (index<=0) return null;
-        // TODO ERROR CHANGE file.substring(0, index + 1) -> file.substring(0, index) otherwise trailing "/" remains
-        if (DBG) println("removeLastSegment result: " + file.substring(0, index));
-        return file.substring(0, index);
+        // MUST keep the trailing "/" for samba
+        if (DBG) println("removeLastSegment result: " + file.substring(0, index + 1));
+        return file.substring(0, index + 1);
     }
 }
