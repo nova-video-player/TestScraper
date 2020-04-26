@@ -57,7 +57,7 @@ public class TestScraper {
     // e.g. "/series/Galactica/Season 1/galactica.ep3.avi"
 
     private static final Pattern SHOW_SEASON_EPISODE_PATH_PATTERN =
-            Pattern.compile("(?i).*/((?:[\\p{L}\\p{N}]++[\\s._-]*+)++)/[^/]*?(?<![\\p{L}])(?:S|SEAS|SEASON)[\\s._-]*+(\\d{1,2})(?!\\d)[^/]*+/[^/]*?(?<![\\p{L}])(?:E|EP|EPISODE|WEBISODE)[\\s._-]*+(\\d{1,2})(?!\\d)[^/]*+");
+            Pattern.compile("(?i).*/((?:[\\p{L}\\p{N}]++[\\s._-]*+)++)/[^/]*?(?<![\\p{L}])(?:S|SEAS|SEASON)[\\s._-]*+(\\d{1,2})(?!\\d)[^/]*+/[^/]*?(?<![\\p{L}])(?:E|EP|EPISODE)[\\s._-]*+(\\d{1,2})(?!\\d)[^/]*+");
 
     /**
      * Matches Tv Shows in folders like
@@ -157,7 +157,7 @@ public class TestScraper {
     // Name patterns where the show is present first. Examples below.
     private static final Pattern[] patternsShowFirst = {
             // almost anything that has S 00 E 00 in it
-            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:s|seas|season)" + SEP_OPTIONAL + "(20\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode|webisode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:s|seas|season)" + SEP_OPTIONAL + "(20\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
             // almost anything that has 00 x 00
             Pattern.compile("(.+?)" + SEP_MANDATORY + "(20\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "x" + SEP_MANDATORY + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
             // special case to avoid x264 or x265
@@ -171,13 +171,13 @@ public class TestScraper {
     // Name patterns which begin with the number of the episode
     private static final Pattern[] patternsEpisodeFirst = {
             // anything that starts with S 00 E 00, text after "-" getting ignored
-            Pattern.compile(SEP_OPTIONAL + "(?:s|seas|season)" + SEP_OPTIONAL + "(\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode|webisode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d)" + SEP_OPTIONAL + "([^-]*+).*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile(SEP_OPTIONAL + "(?:s|seas|season)" + SEP_OPTIONAL + "(\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d)" + SEP_OPTIONAL + "([^-]*+).*", Pattern.CASE_INSENSITIVE),
             // anything that starts with 00 x 00, text after "-" getting ignored like in "S01E15 - ShowName - Ignored - still ignored"
             Pattern.compile(SEP_OPTIONAL + "(\\d{1,2})" + SEP_OPTIONAL + "x" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d)" + SEP_OPTIONAL + "([^-]*+).*", Pattern.CASE_INSENSITIVE),
     };
     // for show episode only without season
     private static final Pattern SHOW_ONLY_EPISODE_PATTERN =
-            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:e|ep|episode|webisode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE);
+            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:e|ep|episode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE);
 
     private static String cleanUpName(String name) {
         name = unifyApostrophes(name);
