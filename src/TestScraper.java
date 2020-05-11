@@ -127,6 +127,9 @@ public class TestScraper {
                 String episode = showName.get(EPNUM);
                 int seasonInt = parseInt(season, 0);
                 int episodeInt = parseInt(episode, 0);
+                // Remark Doctor Who (2005) -> need to keep 2005 https://www.thetvdb.com/search?menu%5Btype%5D=TV&query=Doctor%20Who
+                // but See (2019) causes issues since there is only one show and 2019 is the date however it should not be there: do not try to remove it.
+                // extract the last year from the string
                 println("TvShowMatcher true: show %s season:%s, episode:%s",showTitle, seasonInt, episodeInt);
                 return true;
             } else {
@@ -151,8 +154,9 @@ public class TestScraper {
     };
 
     // Separators: Punctuation or Whitespace
-    private static final String SEP_OPTIONAL = "[\\p{Punct}\\s]*+";
-    private static final String SEP_MANDATORY = "[\\p{Punct}\\s]++";
+    // remove the "(" and ")" in punctuation to avoid matching end parenthesis of date in "show (1987) s01e01 title.mkv"
+    private static final String SEP_OPTIONAL = "[[\\p{Punct}&&[^()]]\\s]*+";
+    private static final String SEP_MANDATORY = "[[\\p{Punct}&&[^()]]\\s]++";
 
     // Name patterns where the show is present first. Examples below.
     private static final Pattern[] patternsShowFirst = {
@@ -328,6 +332,8 @@ public class TestScraper {
     // will unfortunately match -> catch that before
     //      "/series/The A Team S01E02 (1978)/lala.avi
     // Remark: could not match ^1921 without matching "2001 A space oddyssey.mkv" "1984.mkv", thus following not matched ./Marx_Brothers/1941 Au grand magasin (The Big Store).mkv
+    // Remark: could not try to match years without () surrounding since movie names sometimes contain dates... i.e. cannot match /harddrive/Across.The.Universe.2007.1080p.BluRay.x264-HDEX/h-atu.1080.mkv
+    // there are movie names containing dates https://www.imdb.com/search/keyword/?keywords=year-in-title
     private static final Pattern MOVIE_YEAR_PATH_PATTERN = Pattern.compile(".*/((?:[\\p{L}\\p{N}]++\\s*+)++)\\(((?:19|20)\\d{2})\\)[^/]*+/[^/]++");
 
     private static boolean MoviePathMatcher(String input) {
