@@ -1,5 +1,3 @@
-import javafx.util.Pair;
-
 import java.io.*;
 import java.net.URLEncoder;
 import java.util.HashMap;
@@ -381,8 +379,8 @@ public class TestScraper {
         // matches "[space or punctuation/brackets etc]year", year is group 1
         // "[\\s\\p{Punct}]((?:19|20)\\d{2})(?!\\d)"
         Pair<String, String> nameYear = yearExtractor(name);
-        name = nameYear.getKey();
-        year = nameYear.getValue();
+        name = nameYear.getLeft();
+        year = nameYear.getRight();
 
         // remove junk behind () that was containing year
         // applies to movieName (1928) junk -> movieName () junk -> movieName
@@ -707,5 +705,27 @@ public class TestScraper {
         // MUST keep the trailing "/" for samba
         if (DBG) println("removeLastSegment result: " + file.substring(0, index + 1));
         return file.substring(0, index + 1);
+    }
+
+    // avoid missing Pair class
+    public static class Pair<L,R> {
+        private final L left;
+        private final R right;
+        public Pair(L left, R right) {
+            assert left != null;
+            assert right != null;
+            this.left = left;
+            this.right = right;
+        }
+        public L getLeft() { return left; }
+        public R getRight() { return right; }
+        @Override
+        public int hashCode() { return left.hashCode() ^ right.hashCode(); }
+        @Override
+        public boolean equals(Object o) {
+            if (!(o instanceof Pair)) return false;
+            Pair pairo = (Pair) o;
+            return this.left.equals(pairo.getLeft()) && this.right.equals(pairo.getRight());
+        }
     }
 }
