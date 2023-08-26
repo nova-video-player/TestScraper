@@ -159,16 +159,21 @@ public class TestScraper {
     // Name patterns where the show is present first. Examples below.
     private static final Pattern[] patternsShowFirst = {
             // almost anything that has S 00 E 00 in it
-            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:s|seas|season)" + SEP_OPTIONAL + "(20\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
+            // take 20xx or 19xx or xx as season number
+            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:s|seas|season)" + SEP_OPTIONAL + "(20\\d{2}|19\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "(?:e|ep|episode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
             // almost anything that has 00 x 00
-            Pattern.compile("(.+?)" + SEP_MANDATORY + "(20\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "x" + SEP_MANDATORY + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(.+?)" + SEP_MANDATORY + "(20\\d{2}|19\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "x" + SEP_MANDATORY + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
             // special case to avoid x264 or x265
-            Pattern.compile("(.+?)" + SEP_MANDATORY + "(20\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "x" + SEP_OPTIONAL + "(?!(?:264|265|720))(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
+            Pattern.compile("(.+?)" + SEP_MANDATORY + "(20\\d{2}|19\\d{2}|\\d{1,2})" + SEP_OPTIONAL + "x" + SEP_OPTIONAL + "(?!(?:264|265|720))(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
             // foo.103 and similar
             // Note: can detect movies that contain 3 digit numbers like "127 hours" or shows that have such numbers in their name like "zoey 101"
             // Limit first digit to be >0 in order not to identify "James Bond 007" as tv show
             // TODO is it wise because s00exx are the episode specials no but matched probably by previous pattern matching
             Pattern.compile("(.+)" + SEP_MANDATORY + "(?!(?:264|265|720))([1-9])(\\d{2,2})" + SEP_MANDATORY + ".*", Pattern.CASE_INSENSITIVE),
+            // Daily shows The Talk 2023 05 05 XviD-AFG [eztv].mkv -> s2023e0505 ou s2023e(m*31+d)
+            Pattern.compile("(.+?)" + SEP_MANDATORY + "(20\\d{2}|19\\d{2}|\\d{1,2})" + SEP_MANDATORY + "((\\d{2})" + SEP_MANDATORY + "(\\d{2})(?!\\d)).*", Pattern.CASE_INSENSITIVE),
+            // Match show EXX -> one season?
+            Pattern.compile("(.+?)" + SEP_MANDATORY + "(?:(?:s|seas|season)" + SEP_OPTIONAL + "(20\\d{2}|19\\d{2}|\\d{1,2})){0}" + SEP_OPTIONAL + "(?:e|ep|episode)" + SEP_OPTIONAL + "(\\d{1,3})(?!\\d).*", Pattern.CASE_INSENSITIVE),
     };
     // Name patterns which begin with the number of the episode
     private static final Pattern[] patternsEpisodeFirst = {
@@ -186,6 +191,8 @@ public class TestScraper {
         name = removeNumbering(name);
         name = replaceAcronyms(name);
         name = replaceAllChars(name, REPLACE_ME, ' ');
+        // Strip out everything else in brackets <[{( .. )})>, most of the time teams names, etc
+        name = replaceAll(name, "", BRACKETS);
         name = name.trim();
         if (DBG) println("cleanUpName: " + name);
         return name;
@@ -205,8 +212,9 @@ public class TestScraper {
                 if(matcher.find()) {
                     if (DBG) println("parseShowName patternsShowFirst show %s, season %s, episode %s", matcher.group(1), matcher.group(2), matcher.group(3));
                     buffer.put(SHOW, cleanUpName(matcher.group(1)));
-                    buffer.put(SEASON, matcher.group(2));
-                    buffer.put(EPNUM, matcher.group(3));
+                    String season = matcher.group(2);
+                    buffer.put(SEASON, (season == null || season.isEmpty()) ? "1" : season);
+                    buffer.put(EPNUM, matcher.group(3).replaceAll(SEP_MANDATORY, ""));
                     return buffer;
                 }
             } catch (IllegalArgumentException ignored) {}
