@@ -1,3 +1,12 @@
+./[Yun] The Three-Body Problem E01.mkv
+./The Talk 2023 05 05 XviD-AFG [eztv].mkv
+STOPTEST
+./[Theatre] Horace de Corneille 1972 Comedie Francaise DVDRip Xvid SJay.avi
+./[Yun] The Three-Body Problem E01.mkv
+./[KURISU_] Cyberpunk Edgerunners S01E01 MULTI 1080P WebRip X265.mkv
+./The Talk 2023 05 05 XviD-AFG [eztv].mkv
+./White.Noise.2022.mkv
+//STOPTEST
 //Normal that this one is not matched by MoviePathMatcher cf. comment in code
 ./movies/Transformers.2001/movie.avi
 //STOPTEST
